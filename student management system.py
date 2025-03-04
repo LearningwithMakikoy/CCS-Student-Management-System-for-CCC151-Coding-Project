@@ -137,7 +137,7 @@ ginger_ent.grid(row=4,column=1,padx=2,pady=2)
 programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="lightgrey")
 programno_lbl.grid(row=5,column=0,padx=2,pady=2)
 programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=programno)
-programno_ent['values']=("BSCS","BSCA","BSIT","BSIS")
+programno_ent['values']=("BSCS","BSCA","BSIT","BSIS","BAPSYCH","BSN","BSCE","BSCHEM","BSEdM")
 programno_ent.grid(row=5,column=1,padx=2,pady=2)
 
 #Student Functions
@@ -200,7 +200,6 @@ def save_student_edit():
         writer.writerows(data)
 
     load_csv()  
-    save_btn.config(state=Tk.DISABLED) 
     
     messagebox.showinfo("Success", "Student details updated successfully!")
 
@@ -235,6 +234,19 @@ def add_student():
         messagebox.showerror("Error", "All fields must be filled!")
         return
     file_exists = os.path.exists("student.csv")
+
+    # Check for duplicate ID
+    if file_exists:
+        try:
+            with open("student.csv", "r", newline='', encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row["ID Number"] == idno.get():
+                        messagebox.showerror("Error", "Duplicate ID Number! Student already exists.")
+                        return
+        except FileNotFoundError:
+            pass
+
     with open("student.csv","a",newline='',encoding="utf-8")as file:
         writer=csv.writer(file)
         if not file_exists:
@@ -298,7 +310,7 @@ edit_btn.grid(row=1, column=1, padx=2, pady=2)
 blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_student_edit, state=Tk.DISABLED)
+save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_student_edit)
 save_btn.grid(row=6, column=0, padx=2, pady=2)
 
 #Search
@@ -402,19 +414,19 @@ search_by=Tk.StringVar()
 college_programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="lightgrey")
 college_programno_lbl.grid(row=0,column=0,padx=2,pady=2)
 college_programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_programno)
-college_programno_ent['values']=("BSCS","BSCA","BSIT","BSIS")
+college_programno_ent['values']=("BSCS","BSCA","BSIT","BSIS","BAPSYCH","BSN","BSCE","BSCHEM","BSEdM")
 college_programno_ent.grid(row=0,column=1,padx=2,pady=2)
 
 course_lbl=Tk.Label(detail_frame,text="College Course ",font=('Arial',12),bg="lightgrey")
 course_lbl.grid(row=1,column=0,padx=2,pady=2)
 course_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=course)
-course_ent['values']=("BS Computer Science","BS Computer Applications","BS Information Technology","BS Information System")
+course_ent['values']=("BS Computer Science","BS Computer Applications","BS Information Technology","BS Information System","BA Psychology","BS Nursing","BS Chemistry","BSEd Mathematics","BS Civil Engineering")
 course_ent.grid(row=1,column=1,padx=2,pady=2)
 
 college_lbl=Tk.Label(detail_frame,text="College Code",font=('Arial',12),bg="lightgrey")
 college_lbl.grid(row=2,column=0,padx=2,pady=2)
 college_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college)
-college_ent['values']=("CCS")
+college_ent['values']=("CCS","CASS","COET","CSM","CED","CEBA","CHS")
 college_ent.grid(row=2,column=1,padx=2,pady=2)
 
 #Functions for Program
@@ -440,6 +452,20 @@ def add_program():
         messagebox.showerror("Error", "All fields must be filled!")
         return
     file_exists = os.path.exists("program.csv")
+    # Check for duplicate Program Code and Course
+    if file_exists:
+        try:
+            with open("program.csv", "r", newline='', encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row["Program Code"] == college_programno.get():
+                        messagebox.showerror("Error", "Duplicate Program Code! Program already exists.")
+                        return
+                    if row["Course"] == course.get():
+                        messagebox.showerror("Error", "Duplicate Course! Course already exists.")
+                        return
+        except FileNotFoundError:
+            pass
     with open("program.csv","a",newline='',encoding="utf-8")as file:
         writer=csv.writer(file)
         if not file_exists:
@@ -524,8 +550,6 @@ def save_program_edit():
         writer.writerows(data)
 
     load_program_csv()
-    save_btn.config(state=Tk.DISABLED)
-
     messagebox.showinfo("Success", "Program details updated successfully!")
 
 
@@ -555,7 +579,7 @@ blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
 #Save
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_program_edit, state=Tk.DISABLED)
+save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_program_edit)
 save_btn.grid(row=6, column=0, padx=2, pady=2)
 
 
@@ -653,13 +677,13 @@ search_by=Tk.StringVar()
 college_code_lbl=Tk.Label(detail_frame,text="College Code ",font=('Arial',12),bg="lightgrey")
 college_code_lbl.grid(row=0,column=0,padx=2,pady=2)
 college_code_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_code)
-college_code_ent['values']=("CCS",)
+college_code_ent['values']=("CCS","CASS","COET","CSM","CED","CEBA","CHS")
 college_code_ent.grid(row=0,column=1,padx=2,pady=2)
 
 college_name_lbl=Tk.Label(detail_frame,text="Name of College",font=('Arial',12),bg="lightgrey")
 college_name_lbl.grid(row=1,column=0,padx=2,pady=2)
 college_name_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_name)
-college_name_ent['values']=("College of Computer Studies",)
+college_name_ent['values']=("College of Computer Studies","College of Arts & Social Sciences","College of Engineering & Technology","College of Science & Mathematics","College of Education","College of Business Administration & Accountancy","College of Health Sciences")
 college_name_ent.grid(row=1,column=1,padx=2,pady=2)
 
 #CSV Load
@@ -687,6 +711,20 @@ def add_college():
         messagebox.showerror("Error", "All fields must be filled!")
         return
     file_exists = os.path.exists("college.csv")
+     # Check for duplicate Program Code and Course
+    if file_exists:
+        try:
+            with open("college.csv", "r", newline='', encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row["College Code"] == college_code.get():
+                        messagebox.showerror("Error", "Duplicate College Code! College Code already exists.")
+                        return
+                    if row["College Name"] == college_name.get():
+                        messagebox.showerror("Error", "Duplicate College Name! College Name already exists.")
+                        return
+        except FileNotFoundError:
+            pass
     with open("college.csv","a",newline='',encoding="utf-8")as file:
         writer=csv.writer(file)
         if not file_exists:
@@ -778,7 +816,6 @@ def save_college_edit():
         writer.writerows(data)
 
     load_college_csv()
-    save_btn.config(state=Tk.DISABLED)
 
     messagebox.showinfo("Success", "College details updated successfully!")
 
@@ -809,7 +846,7 @@ blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
 #Save
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_college_edit, state=Tk.DISABLED)
+save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_college_edit)
 save_btn.grid(row=6, column=0, padx=2, pady=2)
 
 #Search
