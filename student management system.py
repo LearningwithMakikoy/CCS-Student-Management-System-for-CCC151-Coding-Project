@@ -268,6 +268,10 @@ def delete_student():
     if not selected_items:
         return 
 
+    confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected student(s)?")
+    if not confirm:
+        return
+
     with open('student.csv', 'r', newline='') as file:
         reader = csv.reader(file)
         data = list(reader) 
@@ -285,7 +289,7 @@ def delete_student():
 
     for item in selected_items:
         student_table.delete(item)
-
+    messagebox.showinfo("Success", "Student deleted successfully!")
 #Buttons
 
 btn_frame=Tk.Frame(detail_frame,bg="lightgrey",bd=10,relief=Tk.GROOVE)
@@ -483,6 +487,10 @@ def delete_program():
     selected_items = program_table.selection()  
     if not selected_items:
         return 
+
+    confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected program(s)?")
+    if not confirm:
+        return    
 
     with open('student.csv', 'r', newline='') as file:
         reader = csv.DictReader(file)
@@ -742,6 +750,10 @@ def delete_college():
     if not selected_items:
         return 
 
+    confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected college(s)?")
+    if not confirm:
+        return
+        
     try:
         with open('program.csv', 'r', newline='', encoding="utf-8") as file:
             reader = csv.DictReader(file)
