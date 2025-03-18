@@ -136,12 +136,26 @@ ginger_ent.grid(row=4,column=1,padx=2,pady=2)
 
 programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="lightgrey")
 programno_lbl.grid(row=5,column=0,padx=2,pady=2)
-programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=programno)
-programno_ent['values']=("BSCS","BSCA","BSIT","BSIS","BAPSYCH","BSN","BSCE","BSCHEM","BSEdM")
+programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly", textvariable=programno)
 programno_ent.grid(row=5,column=1,padx=2,pady=2)
 
 #Student Functions
 #CSV Load
+def update_program_combobox():
+    """Update the program combobox with the latest program codes from program.csv."""
+    programs = []
+    if os.path.exists("program.csv"):
+        with open("program.csv", "r", newline='', encoding="utf-8") as file:
+            reader = csv.reader(file)
+            next(reader, None)  # Skip header
+            programs = [row[0] for row in reader]  # Extract Program Codes
+    
+    programno_ent['values'] = programs  # Update combobox values
+    
+    # If the current selection is not valid, reset to 'N/A'
+    if programno.get() not in programs:
+        programno.set('N/A')
+
 def load_csv():
     try:
         with open("student.csv", newline='', encoding='utf-8') as n:
@@ -276,16 +290,15 @@ def delete_student():
         reader = csv.reader(file)
         data = list(reader) 
 
-    selected_values = [student_table.item(item, "values") for item in selected_items]
+    selected_values = [student_table.item(item, "values")[0] for item in selected_items]
 
-    updated_data = [data[0]]  
-    for row in data[1:]: 
-        if tuple(row) not in selected_values:  
-            updated_data.append(row)
+    for row in data:
+        if row[0] in selected_values:
+            row[5] = ""  # Set Program Code to null instead of preventing deletion
 
     with open('student.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerows(updated_data)
+        writer.writerows(data)
 
     for item in selected_items:
         student_table.delete(item)
@@ -417,14 +430,12 @@ search_by=Tk.StringVar()
 # Label for Program Details
 college_programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="lightgrey")
 college_programno_lbl.grid(row=0,column=0,padx=2,pady=2)
-college_programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_programno)
-college_programno_ent['values']=("BSCS","BSCA","BSIT","BSIS","BAPSYCH","BSN","BSCE","BSCHEM","BSEdM")
+college_programno_ent=Tk.Entry(detail_frame,bd=7,font=("Arial",12),textvariable=college_programno)
 college_programno_ent.grid(row=0,column=1,padx=2,pady=2)
 
 course_lbl=Tk.Label(detail_frame,text="College Course ",font=('Arial',12),bg="lightgrey")
 course_lbl.grid(row=1,column=0,padx=2,pady=2)
-course_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=course)
-course_ent['values']=("BS Computer Science","BS Computer Applications","BS Information Technology","BS Information System","BA Psychology","BS Nursing","BS Chemistry","BSEd Mathematics","BS Civil Engineering")
+course_ent=Tk.Entry(detail_frame,bd=7,font=("Arial",12),textvariable=course)
 course_ent.grid(row=1,column=1,padx=2,pady=2)
 
 college_lbl=Tk.Label(detail_frame,text="College Code",font=('Arial',12),bg="lightgrey")
@@ -450,13 +461,23 @@ def load_program_csv():
     except FileNotFoundError:
         print("Error: 'program.csv' not found.")
 
+def is_valid_program_no(program_no):
+    """Check if the program code contains only capital letters."""
+    return bool(re.fullmatch(r'[A-Z]+', program_no)) 
 #Add  
 def add_program():
-    if not (college_programno.get(), course.get(), college.get() ):
+    program_no = college_programno.get()
+    if not is_valid_program_no(program_no):
+        messagebox.showerror("Error", "Invalid Program Code! Only capital letters are allowed.")
+        return 
+    
+    if not (college_programno.get() and course.get() and college.get()):
         messagebox.showerror("Error", "All fields must be filled!")
         return
+    
     file_exists = os.path.exists("program.csv")
-    # Check for duplicate Program Code and Course
+    
+    # Check for duplicate Program Code
     if file_exists:
         try:
             with open("program.csv", "r", newline='', encoding="utf-8") as file:
@@ -465,17 +486,19 @@ def add_program():
                     if row["Program Code"] == college_programno.get():
                         messagebox.showerror("Error", "Duplicate Program Code! Program already exists.")
                         return
-                    if row["Course"] == course.get():
-                        messagebox.showerror("Error", "Duplicate Course! Course already exists.")
-                        return
         except FileNotFoundError:
             pass
-    with open("program.csv","a",newline='',encoding="utf-8")as file:
-        writer=csv.writer(file)
+
+    with open("program.csv", "a", newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
         if not file_exists:
-               writer.writerow(["Program Code","Course","College Code"])
+            writer.writerow(["Program Code", "Course", "College Code"])
         writer.writerow([college_programno.get(), course.get(), college.get()])
-    messagebox.showinfo("Adding Update","Program Data added successfully!")
+    
+    messagebox.showinfo("Adding Update", "Program Data added successfully!")
+
+    update_program_combobox()  # Ensure student combobox updates
+
     
 #Clearing of Input Fields
 college_programno.set("")
@@ -484,7 +507,7 @@ college.set("")
 
 #delete Function
 def delete_program():
-    selected_items = program_table.selection()  
+    selected_items = program_table.selection()
     if not selected_items:
         return 
 
@@ -493,36 +516,35 @@ def delete_program():
         return    
 
     with open('student.csv', 'r', newline='') as file:
-        reader = csv.DictReader(file)
-        student_program_codes = {row["Program Code"] for row in reader} 
+        reader = csv.reader(file)
+        data = list(reader)
 
-  
+    selected_values = [program_table.item(item, "values")[0] for item in selected_items]
+
+    for row in data:
+        if row[5] in selected_values:
+            row[5] = ""  # Set Program Code to null instead of preventing deletion
+
+    with open('student.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
+
     with open('program.csv', 'r', newline='') as file:
         reader = csv.reader(file)
-        data = list(reader)  
-
-    selected_values = [program_table.item(item, "values")[0] for item in selected_items]  
-
-    updated_data = [data[0]]  
-
-    for row in data[1:]: 
-        if row[0] in selected_values:  
-            if row[0] in student_program_codes:
-                messagebox.showerror("Error", f"Cannot delete {row[0]}: It is assigned to students.")
-                return  
-        else:
-            updated_data.append(row)  
-
+        data = list(reader)
+    
+    updated_data = [row for row in data if row[0] not in selected_values]
     
     with open('program.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(updated_data)
 
-    
     for item in selected_items:
         program_table.delete(item)
 
     messagebox.showinfo("Success", "Program deleted successfully!")
+
+    update_program_combobox()  # Ensure combobox gets updated
 
 def edit_program():
     selected_item = program_table.selection()
@@ -684,14 +706,12 @@ search_by=Tk.StringVar()
 # Label for College Details
 college_code_lbl=Tk.Label(detail_frame,text="College Code ",font=('Arial',12),bg="lightgrey")
 college_code_lbl.grid(row=0,column=0,padx=2,pady=2)
-college_code_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_code)
-college_code_ent['values']=("CCS","CASS","COET","CSM","CED","CEBA","CHS")
+college_code_ent=Tk.Entry(detail_frame,bd=7,font=("Arial",12),textvariable=college_code)
 college_code_ent.grid(row=0,column=1,padx=2,pady=2)
 
 college_name_lbl=Tk.Label(detail_frame,text="Name of College",font=('Arial',12),bg="lightgrey")
 college_name_lbl.grid(row=1,column=0,padx=2,pady=2)
-college_name_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college_name)
-college_name_ent['values']=("College of Computer Studies","College of Arts & Social Sciences","College of Engineering & Technology","College of Science & Mathematics","College of Education","College of Business Administration & Accountancy","College of Health Sciences")
+college_name_ent=Tk.Entry(detail_frame,bd=7,font=("Arial",12),textvariable=college_name)
 college_name_ent.grid(row=1,column=1,padx=2,pady=2)
 
 #CSV Load
@@ -713,8 +733,14 @@ def load_college_csv():
 
 
 #Functions
-
+def is_valid_college_no(college_no):
+    """Check if the program code contains only capital letters."""
+    return bool(re.fullmatch(r'[A-Z]+', college_no)) 
 def add_college():
+    college_no = college_code.get()
+    if not is_valid_program_no(college_no):
+        messagebox.showerror("Error", "Invalid College Code! Only capital letters are allowed.")
+        return 
     if not (college_code.get(), college_name.get() ):
         messagebox.showerror("Error", "All fields must be filled!")
         return
@@ -752,48 +778,36 @@ def delete_college():
 
     confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected college(s)?")
     if not confirm:
-        return
-        
-    try:
-        with open('program.csv', 'r', newline='', encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            program_college_codes = {row["College Code"] for row in reader if "College Code" in row}
-    except FileNotFoundError:
-        program_college_codes = set()  
-  
-    try:
-        with open('college.csv', 'r', newline='', encoding="utf-8") as file:
-            reader = csv.reader(file)
-            data = list(reader) 
-    except FileNotFoundError:
-        messagebox.showerror("Error", "college.csv not found.")
-        return
+        return    
 
-    if not data:
-        messagebox.showerror("Error", "college.csv is empty!")
-        return
-
-    header = data[0]
-    updated_data = [header]
+    with open('program.csv', 'r', newline='') as file:
+        reader = csv.reader(file)
+        data = list(reader)  
 
     selected_values = [college_table.item(item, "values")[0] for item in selected_items]  
 
-    for row in data[1:]: 
-        if len(row) > 0 and row[0] in selected_values:  
-            if row[0] in program_college_codes:
-                messagebox.showerror("Error", f"Cannot delete {row[0]}: It is assigned to Programs.")
-                return  
-        else:
-            updated_data.append(row) 
+    for row in data:
+        if row[2] in selected_values:
+            row[2] = ""  # Set College Code to null instead of preventing deletion
 
-    with open('college.csv', 'w', newline='', encoding="utf-8") as file:
+    with open('program.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
+
+    with open('college.csv', 'r', newline='') as file:
+        reader = csv.reader(file)
+        data = list(reader)  
+    
+    updated_data = [row for row in data if row[0] not in selected_values]
+    
+    with open('college.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(updated_data)
 
     for item in selected_items:
-        college_table.delete(item) 
+        college_table.delete(item)
 
-    messagebox.showinfo("Success", "College Code deleted successfully!")
+    messagebox.showinfo("Success", "College deleted successfully!")
 
 def edit_college():
     selected_item = college_table.selection()
