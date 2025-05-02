@@ -7,6 +7,33 @@ import re
 
 
 #Global functions
+original_idno = None
+
+def update_program_combobox():
+    programs = []
+    if os.path.exists("program.csv"):
+        with open("program.csv", "r", newline='', encoding="utf-8") as file:
+            reader = csv.reader(file)
+            next(reader, None)
+            programs = [row[0] for row in reader]  
+    
+    programno_ent['values'] = programs  
+    
+    if programno.get() not in programs:
+        programno.set('N/A')
+
+def update_college_combobox():
+    colleges = []
+    if os.path.exists("college.csv"):
+        with open("college.csv", "r", newline='', encoding="utf-8") as file:
+            reader = csv.reader(file)
+            next(reader, None)  
+            colleges = [row[0] for row in reader]
+
+    college_ent['values'] = colleges  
+
+    if college.get() not in colleges:
+        college.set('N/A')
 
 def search_data(filename, table, search_entry):
     search_value = search_entry.get().strip().lower()
@@ -59,11 +86,12 @@ def delete_program_or_college(file_name, program_code_to_delete):
 
     messagebox.showinfo("Success", f"{program_code_to_delete} has been deleted.")
 
+current_page_student=0
+items_per_page=17
         
 #making of Main Frame Student
 win = Tk.Tk()
-win.geometry("1200x700")
-
+win.geometry("1240x700")
 
 page1=Frame(win)
 page2=Frame(win)
@@ -105,7 +133,6 @@ level=Tk.StringVar()
 ginger=Tk.StringVar()
 programno=Tk.StringVar()
 
-search_by=Tk.StringVar()
 
 # Label for Student Details
 idno_lbl=Tk.Label(detail_frame,text="ID Number ",font=('Arial',12),bg="lightgrey")
@@ -138,84 +165,93 @@ programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="l
 programno_lbl.grid(row=5,column=0,padx=2,pady=2)
 programno_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly", textvariable=programno)
 programno_ent.grid(row=5,column=1,padx=2,pady=2)
+update_program_combobox()
 
 #Student Functions
 #CSV Load
-def update_program_combobox():
-    """Update the program combobox with the latest program codes from program.csv."""
-    programs = []
-    if os.path.exists("program.csv"):
-        with open("program.csv", "r", newline='', encoding="utf-8") as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header
-            programs = [row[0] for row in reader]  # Extract Program Codes
-    
-    programno_ent['values'] = programs  # Update combobox values
-    
-    # If the current selection is not valid, reset to 'N/A'
-    if programno.get() not in programs:
-        programno.set('N/A')
 
-def load_csv():
+def load_csv(page=0):
+    global current_page_student
+    current_page_student = page
     try:
         with open("student.csv", newline='', encoding='utf-8') as n:
             reader = csv.DictReader(n)
-            
-            # Clear table before inserting new data
-            student_table.delete(*student_table.get_children())
+            data = list(reader)
 
-            for row in reader:
-                student_table.insert(
-                    "", "end",
-                    values=(row["ID Number"], row["First Name"], row["Last Name"], 
-                            row["Year Level"], row["Gender"], row["Program Code"])
-                )
+            student_table.delete(*student_table.get_children())
+            
+            start = page * items_per_page
+            end = start + items_per_page
+
+            for row in data[start:end]:
+                student_table.insert("", "end", values=(
+                    row["ID Number"], row["First Name"], row["Last Name"],
+                    row["Year Level"], row["Gender"], row["Program Code"]
+                ))
+
     except FileNotFoundError:
         print("Error: 'student.csv' not found.")
 
 #Edit
 def edit_student():
+    global original_idno
     selected_item = student_table.selection()
     if not selected_item:
         messagebox.showerror("Error", "No student selected for editing.")
         return
 
     item = student_table.item(selected_item, "values")
-    idno.set(item[0])  
+    idno.set(item[0])
     fname.set(item[1])
     lname.set(item[2])
     level.set(item[3])
     ginger.set(item[4])
     programno.set(item[5])
 
-    save_btn.config(state=Tk.NORMAL)  
+    original_idno = item[0]  # 🛠 Save the OLD ID Number
+
+    save_btn.config(state=Tk.NORMAL)
 
 #Save Changes
+def clear_student_inputs():
+    idno.set("")
+    fname.set("")
+    lname.set("")
+    level.set("")
+    ginger.set("")
+    programno.set("")
+    search_entry_student.delete(0, Tk.END)
+    save_btn.config(state="disabled")
+
 def save_student_edit():
+    global original_idno
     selected_item = student_table.selection()
     if not selected_item:
         messagebox.showerror("Error", "No student selected for saving changes.")
         return
 
-  
     with open("student.csv", "r", newline='', encoding="utf-8") as file:
         reader = csv.reader(file)
         data = list(reader)
 
-
-    for i in range(1, len(data)): 
-        if data[i][0] == idno.get():  
+    for i in range(1, len(data)):  
+        if data[i][0] == original_idno:  
             data[i] = [idno.get(), fname.get(), lname.get(), level.get(), ginger.get(), programno.get()]
             break
 
-   
+    confirm = messagebox.askyesno("Confirm Save", "Are you sure you want to save changes to this student?")
+    if not confirm:
+        return
+
     with open("student.csv", "w", newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerows(data)
 
-    load_csv()  
-    
+    load_csv()
+    clear_student_inputs()
+
     messagebox.showinfo("Success", "Student details updated successfully!")
+
 
 #Check ID Only Accepts YYYY-####
 def check_id():
@@ -261,48 +297,71 @@ def add_student():
         except FileNotFoundError:
             pass
 
-    with open("student.csv","a",newline='',encoding="utf-8")as file:
-        writer=csv.writer(file)
-        if not file_exists:
-               writer.writerow(["ID Number", "First Name", "Last Name", "Year Level", "Gender", "Program Code"])
-        writer.writerow([idno.get(), fname.get(), lname.get(), level.get(), ginger.get(), programno.get()])
-    messagebox.showinfo("Adding Update","Student added successfully!")
-
-#Clearing of Input Fields for Add function
-idno.set("")
-fname.set("")
-lname.set("")
-level.set("")
-ginger.set("")
-programno.set("")    
-
-#delete Function
-def delete_student():
-    selected_items = student_table.selection()  
-    if not selected_items:
-        return 
-
-    confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected student(s)?")
+    confirm = messagebox.askyesno("Confirm Add", "Are you sure you want to add this student?")
     if not confirm:
         return
 
+    with open("student.csv","a",newline='',encoding="utf-8")as file:
+        writer=csv.writer(file)
+        if not file_exists:
+           writer.writerow(["ID Number", "First Name", "Last Name", "Year Level", "Gender", "Program Code"])
+        writer.writerow([idno.get(), fname.get(), lname.get(), level.get(), ginger.get(), programno.get()])
+
+    messagebox.showinfo("Success", "Student added successfully!")
+
+
+    load_csv()
+    clear_student_inputs()
+
+def prev_page_student():
+    global current_page_student
+    if current_page_student > 0:
+        load_csv(current_page_student - 1)
+
+def next_page_student():
+    global current_page_student
+    with open("student.csv", newline='', encoding="utf-8") as f:
+        reader = csv.reader(f)
+        total = len(list(reader)) - 1  # exclude header
+    if (current_page_student + 1) * items_per_page < total:
+        load_csv(current_page_student + 1)
+        
+
+
+    
+
+
+#delete Function
+def delete_student():
+   
+    selected_items = student_table.selection()
+    
+    if not selected_items:
+        return
+    
+    confirm = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete the selected student(s)?")
+    
+    if not confirm:
+        return
+    
     with open('student.csv', 'r', newline='') as file:
         reader = csv.reader(file)
-        data = list(reader) 
+        data = list(reader)
 
     selected_values = [student_table.item(item, "values")[0] for item in selected_items]
-
-    for row in data:
-        if row[0] in selected_values:
-            row[5] = ""  # Set Program Code to null instead of preventing deletion
-
+    
+    data = [row for row in data if row[0] not in selected_values]
+    
     with open('student.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(data)
-
+    
     for item in selected_items:
         student_table.delete(item)
+    
     messagebox.showinfo("Success", "Student deleted successfully!")
+    
+    
 #Buttons
 
 btn_frame=Tk.Frame(detail_frame,bg="lightgrey",bd=10,relief=Tk.GROOVE)
@@ -315,7 +374,7 @@ add_btn.grid(row=0,column=0,padx=2,pady=2)
 #update 
 update_btn=Tk.Button(btn_frame,bg="lightgrey",text="Update",bd=7,font=("Arial",12),width=15, command=load_csv)
 update_btn.grid(row=0,column=1,padx=2,pady=2)
-update_btn.grid()
+
 
 #delete
 delete_btn=Tk.Button(btn_frame,bg="lightgrey",text="Delete",bd=7,font=("Arial",12),width=15, command=delete_student)
@@ -327,7 +386,7 @@ edit_btn.grid(row=1, column=1, padx=2, pady=2)
 blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_student_edit)
+save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_student_edit, state="disabled")
 save_btn.grid(row=6, column=0, padx=2, pady=2)
 
 #Search
@@ -369,16 +428,7 @@ sort_button.grid(row=1,column=3,padx=12,pady=2)
 main_frame = Tk.Frame(data_frame,bg="lightgrey",bd=11,relief=Tk.GROOVE)
 main_frame.pack(fill=Tk.BOTH,expand=True)
 
-y_scroll=Tk.Scrollbar(main_frame,orient=Tk.VERTICAL)
-x_scroll=Tk.Scrollbar(main_frame,orient=Tk.HORIZONTAL)
-
-student_table=ttk.Treeview(main_frame,columns=("ID Number","First Name","Last Name","Year Level","Gender","Program Code"),yscrollcommand=y_scroll.set,xscrollcommand=x_scroll.set)
-
-y_scroll.config(command=student_table.yview)
-x_scroll.config(command=student_table.xview)
-
-y_scroll.pack(side=Tk.RIGHT,fill=Tk.Y)
-x_scroll.pack(side=Tk.BOTTOM,fill=Tk.X)
+student_table = ttk.Treeview(main_frame, columns=("ID Number", "First Name", "Last Name", "Year Level", "Gender", "Program Code"))
 
 student_table.heading("ID Number",text="ID Number")
 student_table.heading("First Name",text="First Name")
@@ -398,6 +448,14 @@ student_table.column("Program Code",width=100)
 
 student_table.pack(fill=Tk.BOTH,expand=True)
 
+pagination_frame = Tk.Frame(data_frame)
+pagination_frame.pack(side=Tk.BOTTOM, pady=5)
+
+prev_btn = Tk.Button(pagination_frame, text="<< Prev", command=prev_page_student)
+prev_btn.pack(side=Tk.LEFT, padx=10)
+
+next_btn = Tk.Button(pagination_frame, text="Next >>", command=next_page_student)
+next_btn.pack(side=Tk.RIGHT, padx=10)
 #Program Frame
 Tk.Label(page2,text="",font=("Arial", 12))  
 title2_label = Tk.Label(
@@ -418,6 +476,7 @@ detail_frame.place(x=10,y=120,width=420,height=575)
 data_frame = Tk.Frame(page2,bd=12,bg="lightblue",relief=Tk.GROOVE)
 data_frame.place(x=440,y=120,width=750,height=575)
 
+
 #Enter Data For Program
 
 #Variables
@@ -425,7 +484,7 @@ data_frame.place(x=440,y=120,width=750,height=575)
 college_programno=Tk.StringVar()
 course=Tk.StringVar()
 college=Tk.StringVar()
-search_by=Tk.StringVar()
+
 
 # Label for Program Details
 college_programno_lbl=Tk.Label(detail_frame,text="Program Code ",font=('Arial',12),bg="lightgrey")
@@ -438,14 +497,21 @@ course_lbl.grid(row=1,column=0,padx=2,pady=2)
 course_ent=Tk.Entry(detail_frame,bd=7,font=("Arial",12),textvariable=course)
 course_ent.grid(row=1,column=1,padx=2,pady=2)
 
-college_lbl=Tk.Label(detail_frame,text="College Code",font=('Arial',12),bg="lightgrey")
-college_lbl.grid(row=2,column=0,padx=2,pady=2)
-college_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly",textvariable=college)
-college_ent['values']=("CCS","CASS","COET","CSM","CED","CEBA","CHS")
-college_ent.grid(row=2,column=1,padx=2,pady=2)
+college_lbl=Tk.Label(detail_frame,text="College Code ",font=('Arial',12),bg="lightgrey")
+college_lbl.grid(row=5,column=0,padx=2,pady=2)
+college_ent=ttk.Combobox(detail_frame,font=("Arial",12),state="readonly", textvariable=college)
+college_ent.grid(row=5,column=1,padx=2,pady=2)
+update_college_combobox()
 
 #Functions for Program
 #CSV Load for Program
+def clear_program_inputs():
+    college_programno.set("")
+    course.set("")
+    college.set("") 
+    search_entry_program.delete(0, Tk.END)
+    save_btn_program.config(state="disabled")
+
 def load_program_csv():
     try:
         with open("program.csv", newline='', encoding='utf-8') as n:
@@ -498,12 +564,9 @@ def add_program():
     messagebox.showinfo("Adding Update", "Program Data added successfully!")
 
     update_program_combobox()  # Ensure student combobox updates
+    load_program_csv()
+    clear_program_inputs()
 
-    
-#Clearing of Input Fields
-college_programno.set("")
-course.set("")
-college.set("") 
 
 #delete Function
 def delete_program():
@@ -545,6 +608,7 @@ def delete_program():
     messagebox.showinfo("Success", "Program deleted successfully!")
 
     update_program_combobox()  # Ensure combobox gets updated
+    
 
 def edit_program():
     selected_item = program_table.selection()
@@ -558,7 +622,7 @@ def edit_program():
     course.set(item[1])
     college.set(item[2])
 
-    save_btn.config(state=Tk.NORMAL)
+    save_btn_program.config(state=Tk.NORMAL)
 
 def save_program_edit():
     selected_item = program_table.selection()
@@ -566,12 +630,22 @@ def save_program_edit():
         messagebox.showerror("Error", "No program selected for saving changes.")
         return
 
+    if not (college_programno.get() and course.get() and college.get()):
+        messagebox.showerror("Error", "All fields must be filled!")
+        return
+
+    confirm = messagebox.askyesno("Confirm Save", "Are you sure you want to save changes?")
+    if not confirm:
+        return
+
     with open("program.csv", "r", newline='', encoding="utf-8") as file:
         reader = csv.reader(file)
         data = list(reader)
 
+    original_code = program_table.item(selected_item)['values'][0]
+
     for i in range(1, len(data)):
-        if data[i][0] == college_programno.get():
+        if data[i][0] == original_code:
             data[i] = [college_programno.get(), course.get(), college.get()]
             break
 
@@ -581,7 +655,8 @@ def save_program_edit():
 
     load_program_csv()
     messagebox.showinfo("Success", "Program details updated successfully!")
-
+    update_program_combobox()
+    clear_program_inputs()
 
 #Buttons
 
@@ -595,7 +670,7 @@ add_btn.grid(row=0,column=0,padx=2,pady=2)
 #Update
 update_btn=Tk.Button(btn_frame,bg="lightgrey",text="Update",bd=7,font=("Arial",12),width=15, command=load_program_csv)
 update_btn.grid(row=0,column=1,padx=2,pady=2)
-update_btn.grid()
+
 
 #Delete
 delete_btn=Tk.Button(btn_frame,bg="lightgrey",text="Delete",bd=7,font=("Arial",12),width=15, command=delete_program)
@@ -609,8 +684,8 @@ blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
 #Save
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_program_edit)
-save_btn.grid(row=6, column=0, padx=2, pady=2)
+save_btn_program = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_program_edit, state="disabled")
+save_btn_program.grid(row=6, column=0, padx=2, pady=2)
 
 
 #Search
@@ -701,7 +776,6 @@ data_frame.place(x=440,y=120,width=750,height=575)
 college_code=Tk.StringVar()
 college_name=Tk.StringVar()
 
-search_by=Tk.StringVar()
 
 # Label for College Details
 college_code_lbl=Tk.Label(detail_frame,text="College Code ",font=('Arial',12),bg="lightgrey")
@@ -733,6 +807,14 @@ def load_college_csv():
 
 
 #Functions
+def clear_college_inputs():
+  
+    college_code.set("")
+    college_name.set("")
+    search_entry_college.delete(0, Tk.END)
+    save_btn_college.config(state="disabled")
+   
+
 def is_valid_college_no(college_no):
     """Check if the program code contains only capital letters."""
     return bool(re.fullmatch(r'[A-Z]+', college_no)) 
@@ -765,10 +847,10 @@ def add_college():
                writer.writerow(["College Code","College Name"])
         writer.writerow([college_code.get(), college_name.get()])
     messagebox.showinfo("Adding Update","College Data added successfully!")
-    
-#Clearing of Input Fields
-college_code.set("")
-college_name.set("")
+
+    update_college_combobox()
+    load_college_csv()
+    clear_college_inputs()
 
 #delete Function
 def delete_college():
@@ -809,6 +891,9 @@ def delete_college():
 
     messagebox.showinfo("Success", "College deleted successfully!")
 
+    update_college_combobox()
+    
+
 def edit_college():
     selected_item = college_table.selection()
     if not selected_item:
@@ -820,7 +905,7 @@ def edit_college():
     college_code.set(item[0])
     college_name.set(item[1])
 
-    save_btn.config(state=Tk.NORMAL)
+    save_btn_college.config(state=Tk.NORMAL)
 
 def save_college_edit():
     selected_item = college_table.selection()
@@ -828,12 +913,23 @@ def save_college_edit():
         messagebox.showerror("Error", "No college selected for saving changes.")
         return
 
+    if not (college_code.get() and college_name.get()):
+        messagebox.showerror("Error", "All fields must be filled!")
+        return
+
+    confirm = messagebox.askyesno("Confirm Save", "Are you sure you want to save changes?")
+    if not confirm:
+        return
+
     with open("college.csv", "r", newline='', encoding="utf-8") as file:
         reader = csv.reader(file)
         data = list(reader)
 
+    # Get the originally selected code from the table
+    original_code = college_table.item(selected_item)['values'][0]
+
     for i in range(1, len(data)):
-        if data[i][0] == college_code.get():
+        if data[i][0] == original_code:
             data[i] = [college_code.get(), college_name.get()]
             break
 
@@ -842,9 +938,9 @@ def save_college_edit():
         writer.writerows(data)
 
     load_college_csv()
-
     messagebox.showinfo("Success", "College details updated successfully!")
-
+    update_college_combobox()
+    clear_college_inputs()
 
 #Buttons
 
@@ -858,7 +954,6 @@ add_btn.grid(row=0,column=0,padx=2,pady=2)
 #Update
 update_btn=Tk.Button(btn_frame,bg="lightgrey",text="Update",bd=7,font=("Arial",12),width=15, command=load_college_csv)
 update_btn.grid(row=0,column=1,padx=2,pady=2)
-update_btn.grid()
 
 #Delete
 delete_btn=Tk.Button(btn_frame,bg="lightgrey",text="Delete",bd=7,font=("Arial",12),width=15, command=delete_college)
@@ -872,8 +967,8 @@ blank_btn = Tk.Button(btn_frame, text="b", font=("Arial", 1), width=1,height=18)
 blank_btn.grid(row=2, column=0, padx=2, pady=2)
 
 #Save
-save_btn = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_college_edit)
-save_btn.grid(row=6, column=0, padx=2, pady=2)
+save_btn_college = Tk.Button(btn_frame, text="Save Changes",bd=7, font=("Arial", 12), width=15, command=save_college_edit, state="disabled")
+save_btn_college.grid(row=6, column=0, padx=2, pady=2)
 
 #Search
 search_frame=Tk.Frame(data_frame,bg="lightgrey",bd=10,relief=Tk.GROOVE)
